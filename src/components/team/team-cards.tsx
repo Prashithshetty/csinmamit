@@ -1,68 +1,83 @@
+// components/team/team-cards.tsx
 import Image from "next/image";
-import Link from "next/link";
-import { buttonVariants } from "../ui/button";
-import { GitHubLogoIcon as GithubIcon } from "@radix-ui/react-icons";
-import { LinkedinIcon } from "lucide-react";
+import { useState } from "react";
+import Lottie from "lottie-react";
+import linkedIn from "src/assets/linkedIn.json";
+import githubIcon from "src/assets/github.png";
+import { CoreMember } from "./team-data";
 
-interface TeamMemberProps {
-  email?: string;
-  name: string;
-  branch: string;
-  position: string;
-  linkedin?: string;
-  github?: string;
-  imageSrc: string;
-  year: number;
-  order: number;
-}
-
-export const TeamMember: React.FC<TeamMemberProps> = ({
+export const TeamMember: React.FC<CoreMember> = ({
   name,
   position,
+  branch,
+  year,
+  imageSrc,
   linkedin,
   github,
-  imageSrc,
 }) => {
+  const [flipped, setFlipped] = useState(false);
+
   return (
-    <div className="bg-gradient-to-br from-white via-gray-50 to-blue-50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-2 hover:ring-blue-400 rounded-2xl p-6">
-      <div className="flex items-center justify-center p-4">
-        <div className="relative h-44 w-44 overflow-hidden rounded-full border-4 border-white shadow-md">
-          <Image
-            src={imageSrc}
-            width={250}
-            height={250}
-            alt="main-image"
-            quality={100}
-            className="h-full w-full object-cover"
-          />
+    <div
+      onClick={() => setFlipped(!flipped)}
+      className="group relative h-[360px] w-[280px] cursor-pointer [perspective:1000px]"
+    >
+      <div
+        className={`relative h-full w-full transition-transform duration-700 [transform-style:preserve-3d] ${
+          flipped ? "rotate-y-180" : "group-hover:rotate-y-180"
+        } group-hover:scale-[1.03]`}
+      >
+        {/* FRONT */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white via-gray-50 to-blue-50 p-6 shadow-md transition-all duration-300 hover:shadow-[0_8px_30px_rgba(47,87,235,0.5)] [backface-visibility:hidden]">
+          <div className="flex items-center justify-center p-4">
+            <div className="relative h-36 w-36 overflow-hidden rounded-full border-4 border-white shadow-md">
+              <Image
+                src={imageSrc}
+                width={250}
+                height={250}
+                alt={name}
+                quality={100}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </div>
+          <div className="text-center mt-3">
+            <h2 className="text-lg font-bold text-black">{name}</h2>
+            <p className="font-semibold text-red-500">{position}</p>
+            <div className="mt-2 flex justify-center space-x-4">
+              {linkedin && linkedin !== "#" && (
+                <a
+                  href={linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-6 w-6"
+                >
+                  <Lottie animationData={linkedIn} loop autoplay />
+                </a>
+              )}
+              {github && github !== "#" && (
+                <a
+                  href={github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-6 w-6"
+                >
+                  <Image src={githubIcon} alt="GitHub" width={24} height={24} />
+                </a>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="text-center">
-        <h2 className="text-2xl font-semibold">{name}</h2>
-        <p className="text-blue-500">{position}</p>
-        <div className="mt-4 flex justify-center gap-4">
-          {linkedin && (
-            <Link
-              title="LinkedIn"
-              className="text-gray-500 hover:text-blue-600 transform transition-transform duration-200 hover:scale-110"
-              href={linkedin}
-              target="_blank"
-            >
-              <LinkedinIcon size={24} />
-            </Link>
-          )}
-          {github && (
-            <Link
-              title="GitHub"
-              className="text-gray-500 hover:text-black transform transition-transform duration-200 hover:scale-110"
-              href={github}
-              target="_blank"
-            >
-              <GithubIcon />
-            </Link>
-          )}
+
+        {/* BACK */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-100 to-white p-6 text-center shadow-md [backface-visibility:hidden] rotate-y-180 backdrop-blur-sm">
+          <div className="flex flex-col justify-center items-center h-full">
+            <h3 className="text-lg font-semibold text-blue-800">{year} Year</h3>
+            <p className="text-sm text-gray-600 mt-1">{branch}</p>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+

@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import { 
-  getAuth, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  type User as FirebaseUser
+  type User as FirebaseUser,
 } from 'firebase/auth';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 
-// Your web app's Firebase configuration
+// Firebase config using environment variables
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -19,11 +19,18 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase only if it hasn't been initialized already
-const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+// ✅ Check if the config is using a dummy or missing API key
+const isFakeKey =
+  !firebaseConfig.apiKey || firebaseConfig.apiKey.includes('DUMMYKEY');
 
-// Get auth from the Firebase app
-const auth = getAuth(firebaseApp);
+// ✅ Only initialize Firebase and Auth if config is valid
+const firebaseApp = !isFakeKey
+  ? getApps().length === 0
+    ? initializeApp(firebaseConfig)
+    : getApp()
+  : null;
+
+const auth = firebaseApp ? getAuth(firebaseApp) : null;
 
 export interface User {
   id: string;
@@ -34,9 +41,15 @@ export interface User {
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(!isFakeKey);
 
   useEffect(() => {
+    if (!auth) {
+      console.warn('⚠️ Firebase Auth not initialized. Using dummy config?');
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         setUser({
@@ -55,6 +68,10 @@ export const useAuth = () => {
   }, []);
 
   const signInWithGoogle = async () => {
+    if (!auth) {
+      throw new Error('Auth not initialized');
+    }
+
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -66,6 +83,7 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
+    if (!auth) return;
     try {
       await firebaseSignOut(auth);
     } catch (error) {
@@ -75,8 +93,8 @@ export const useAuth = () => {
   };
 
   const getIdToken = async () => {
-    if (!auth.currentUser) {
-      throw new Error('No user is signed in');
+    if (!auth?.currentUser) {
+      throw new Error('No user is signed in or Auth not initialized');
     }
     return await auth.currentUser.getIdToken();
   };
@@ -88,4 +106,4 @@ export const useAuth = () => {
     signOut,
     getIdToken,
   };
-}; 
+};
