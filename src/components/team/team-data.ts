@@ -279,10 +279,10 @@ export const CoreMembers: CoreMember[] = [
     name: "Tanisha U Prakash",
     position: "Event Management",
     branch: "CSE",
-    year: 2,
+    year: 3,
     linkedin: "https://www.linkedin.com/in/tanisha-u-prakash-713910320",
     github: "https://github.com/Tanishauprakash05",
-    imageSrc: "/team25/tanisha-u-prakash.jpg",
+    imageSrc: "/team25/tanisha-u-prakash.png",
     order: 27
   }
 ]
