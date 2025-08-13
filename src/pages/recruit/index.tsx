@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle, CreditCard, Crown, Loader2, Lock, XCircle } from "lucide-react";
 
 // Public Razorpay Key ID from environment variables
-const RAZORPAY_KEY_ID = env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_ID ="rzp_live_1VJCSr9bMzGon1";
 
 // Platform fee percentage
 const PLATFORM_FEE_PERCENTAGE = 2; // 2%
@@ -63,31 +63,10 @@ export default function RecruitPage() {
   const platformFee = totalAmount - selectedPlanPrice;
 
   useEffect(() => {
-    // Check if Razorpay script is already loaded
-    if (window.Razorpay) {
-      console.log("✅ Razorpay script already loaded");
-      return;
-    }
-
-    console.log("📥 Loading Razorpay script...");
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
-    script.crossOrigin = "anonymous";
-    script.onload = () => {
-      console.log("✅ Razorpay script loaded successfully");
-      // Verify the script loaded correctly
-      if (window.Razorpay) {
-        console.log("✅ Razorpay object available");
-      } else {
-        console.error("❌ Razorpay object not available after script load");
-      }
-    };
-    script.onerror = (error) => {
-      console.error("❌ Failed to load Razorpay script:", error);
-    };
     document.body.appendChild(script);
-    
     return () => {
       const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
       if (existingScript) document.body.removeChild(existingScript);
@@ -130,12 +109,6 @@ export default function RecruitPage() {
   const initiatePayment = async () => {
     if (!selectedPlanPrice || !user?.id) {
       setTimeout(() => toast.error("Please select a membership plan"), 0);
-      return;
-    }
-    
-    if (!RAZORPAY_KEY_ID) {
-      setTimeout(() => toast.error("Payment configuration error. Please contact support."), 0);
-      console.error("❌ Razorpay key not configured");
       return;
     }
     setIsProcessing(true);
@@ -221,10 +194,6 @@ export default function RecruitPage() {
         },
         theme: { color: "#3B82F6" },
       } as unknown as ConstructorParameters<typeof window.Razorpay>[0];
-
-      if (!window.Razorpay) {
-        throw new Error("Razorpay script not loaded. Please refresh the page and try again.");
-      }
 
       const razorpay = new window.Razorpay(options);
       razorpay.open();
@@ -338,7 +307,6 @@ export default function RecruitPage() {
         <title>CSI NMAMIT - Executive Membership</title>
         <meta name="description" content="Join CSI NMAMIT Executive Membership" />
         <link rel="icon" href="/favicon.ico" />
-        <meta name="feature-policy" content="otp-credentials 'none'" />
       </Head>
 
       <MaxWidthWrapper className="mb-12 mt-9 sm:mt-12">
