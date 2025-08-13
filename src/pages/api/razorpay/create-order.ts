@@ -29,6 +29,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
+  console.log('🔧 Razorpay API - Environment check:', {
+    keyId: env.RAZORPAY_KEY_ID?.substring(0, 10) + '...',
+    hasSecret: !!env.RAZORPAY_KEY_SECRET,
+    nodeEnv: process.env.NODE_ENV
+  });
+
   try {
     // Input validation
     const validationResult = createOrderSchema.safeParse(req.body);
@@ -74,11 +80,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     };
 
+    console.log('📋 Creating Razorpay order with options:', {
+      amount: options.amount,
+      currency: options.currency,
+      receipt: options.receipt,
+      notes: options.notes
+    });
+
     const order = await razorpay.orders.create(options) as {
       id: string;
       amount: number;
       currency: string;
     };
+
+    console.log('✅ Razorpay order created successfully:', {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency
+    });
 
     res.status(200).json({
       success: true,
