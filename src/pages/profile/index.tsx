@@ -3,7 +3,10 @@ import MaxWidthWrapper from "~/components/layout/max-width-wrapper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import Certificates from "../../components/profile/profile-certificate";
 import Profile from "~/components/profile/profile";
-import { EditProfile } from "~/components/profile/profile-edit";
+import dynamic from "next/dynamic";
+
+const EditProfile = dynamic(() => import("~/components/profile/profile-edit").then(mod => mod.EditProfile), { ssr: false });
+
 export default function MainProfile() {
   return (
     <>
