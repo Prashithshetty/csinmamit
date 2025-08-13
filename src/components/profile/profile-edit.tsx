@@ -151,7 +151,7 @@ export const EditProfile = () => {
             certificates: [],
           });
         }
-      } catch (error) {
+      } catch {
         toast.error("Failed to load profile data", {
           description: "Please refresh the page and try again.",
           style: { backgroundColor: '#ef4444', color: 'white' }
@@ -208,7 +208,7 @@ export const EditProfile = () => {
 
       const cleanGithubUsername = formData.github.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
 
-      // Prepare the data to be saved - simplified for testing
+      // Prepare the data to be saved
       const userData = {
         name: formData.name.trim(),
         bio: formData.bio.trim() || "",
@@ -217,11 +217,10 @@ export const EditProfile = () => {
         github: cleanGithubUsername || "",
         linkedin: formData.linkedin.trim() || "",
         phone: formData.phone.trim() || "",
-        role: formData.role,
-        certificates: formData.certificates,
       };
 
       setIsSubmitting(true);
+
       
       try {
         await setDoc(doc(db, 'users', user.id), userData, { merge: true });
