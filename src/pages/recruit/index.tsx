@@ -58,9 +58,9 @@ export default function RecruitPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasActiveMembership, setHasActiveMembership] = useState(false);
 
-  // Calculate platform fee and total amount
-  const platformFee = Math.round((selectedPlanPrice * PLATFORM_FEE_PERCENTAGE) / 100);
-  const totalAmount = selectedPlanPrice + platformFee;
+  // Calculate total amount to collect so that after 2% platform fee, we get exactly the plan price
+  const totalAmount = Math.ceil(selectedPlanPrice / 0.98);
+  const platformFee = totalAmount - selectedPlanPrice;
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -359,15 +359,15 @@ export default function RecruitPage() {
                       <ul className="space-y-2 text-blue-700">
                         <li className="flex items-center gap-2">
                           <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                          1-Year Executive Membership: ₹350 + ₹7 platform fee = ₹357
+                          1-Year Executive Membership: ₹350 + ₹8 platform fee = ₹358
                         </li>
                         <li className="flex items-center gap-2">
                           <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                          2-Year Executive Membership: ₹650 + ₹13 platform fee = ₹663
+                          2-Year Executive Membership: ₹650 + ₹14 platform fee = ₹664
                         </li>
                         <li className="flex items-center gap-2">
                           <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                          3-Year Executive Membership: ₹900 + ₹18 platform fee = ₹918
+                          3-Year Executive Membership: ₹900 + ₹19 platform fee = ₹919
                         </li>
                       </ul>
                     </div>
@@ -435,18 +435,21 @@ export default function RecruitPage() {
                     <span className="text-blue-700">₹{selectedPlanPrice}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-blue-700">Platform Fee ({PLATFORM_FEE_PERCENTAGE}%):</span>
+                    <span className="text-blue-700">Platform Fee:</span>
                     <span className="text-blue-700">₹{platformFee}</span>
                   </div>
                   <div className="border-t border-blue-200 pt-2 mt-2">
                     <div className="flex justify-between items-center font-semibold">
-                      <span className="text-blue-800">Total Amount:</span>
+                      <span className="text-blue-800">Total to Pay:</span>
                       <span className="text-blue-800">₹{totalAmount}</span>
                     </div>
                   </div>
                 </div>
                 <p className="text-sm text-blue-600 mt-3">
                   Duration: {selectedYears} year{selectedYears > 1 ? "s" : ""}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  * After 2% platform fee deduction, you will receive exactly ₹{selectedPlanPrice}
                 </p>
               </div>
             )}
