@@ -17,8 +17,7 @@ import { CheckCircle, CreditCard, Crown, Loader2, Lock, XCircle } from "lucide-r
 // Public Razorpay Key ID from environment variables
 const RAZORPAY_KEY_ID ="rzp_live_1VJCSr9bMzGon1";
 
-// Platform fee percentage
-const PLATFORM_FEE_PERCENTAGE = 2; // 2%
+
 
 const membershipPlans = [
   { id: "1-year", name: "1 Year", price: 350, years: 1 },

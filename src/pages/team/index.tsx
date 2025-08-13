@@ -21,7 +21,6 @@ export interface CoreMember {
 
 export default function Team() {
   const [loading, setLoading] = useState(true);
-  const [imagesLoaded, setImagesLoaded] = useState(0);
   
   useEffect(() => {
     const preloadImages = async () => {
@@ -29,10 +28,7 @@ export default function Team() {
         return new Promise((resolve) => {
           const img = new Image();
           img.src = member.imageSrc;
-          img.onload = () => {
-            setImagesLoaded(prev => prev + 1);
-            resolve(true);
-          };
+          img.onload = () => resolve(true);
           img.onerror = () => resolve(false);
         });
       });
