@@ -23,7 +23,8 @@ async function getRawBody(req: NextApiRequest): Promise<string> {
         resolve(data);
       });
     } catch (err) {
-      reject(err);
+      const message = err instanceof Error ? err.message : 'Failed to read request body';
+      reject(new Error(message));
     }
   });
 }
@@ -32,6 +33,28 @@ const razorpay = new Razorpay({
   key_id: env.RAZORPAY_KEY_ID,
   key_secret: env.RAZORPAY_KEY_SECRET,
 });
+
+type RazorpayPaymentEntity = {
+  id: string;
+  order_id?: string;
+  amount?: number; // in paise
+};
+
+type RazorpayPaymentCapturedEvent = {
+  event: 'payment.captured';
+  payload?: {
+    payment?: {
+      entity?: RazorpayPaymentEntity;
+    };
+  };
+};
+
+function isPaymentCapturedEvent(input: unknown): input is RazorpayPaymentCapturedEvent {
+  if (!input || typeof input !== 'object') return false;
+  const evt = (input as { event?: unknown }).event;
+  if (evt !== 'payment.captured') return false;
+  return true;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -61,19 +84,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid signature' });
     }
 
-    const event = JSON.parse(rawBody) as {
-      event: string;
-      payload?: any;
-    };
+    const parsed: unknown = JSON.parse(rawBody);
 
     // Handle only relevant events
-    if (event.event === 'payment.captured') {
-      const paymentEntity = event.payload?.payment?.entity as {
-        id: string;
-        order_id?: string;
-        amount?: number; // in paise
-        notes?: Record<string, string>;
-      };
+    if (isPaymentCapturedEvent(parsed)) {
+      const paymentEntity: RazorpayPaymentEntity | undefined = parsed.payload?.payment?.entity;
 
       if (!paymentEntity) {
         return res.status(200).json({ received: true });
