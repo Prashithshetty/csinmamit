@@ -1,4 +1,4 @@
-import { LinkedinIcon, Github } from "lucide-react";
+import { LinkedinIcon, Github, LogOut } from "lucide-react";
 import { useAuth } from "~/lib/firebase-auth";
 import Image from "next/image";
 import Link from "next/link";
@@ -25,7 +25,7 @@ interface MembershipData {
 }
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [membershipData, setMembershipData] = useState<MembershipData | null>(null);
@@ -36,6 +36,14 @@ export default function Profile() {
       <span>{value}</span>
     </div>
   );
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Sign-out error:", error);
+    }
+  };
 
 
   useEffect(() => {
@@ -209,6 +217,15 @@ export default function Profile() {
           <Github size={20} />
         </Link>
       </div>
+
+      {/* Logout Button */}
+      <button
+        onClick={handleSignOut}
+        className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+      >
+        <LogOut size={16} />
+        <span className="text-sm font-medium">Logout</span>
+      </button>
     </div>
 
     {/* RIGHT PANEL */}
