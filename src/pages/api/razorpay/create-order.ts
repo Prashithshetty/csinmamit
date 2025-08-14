@@ -10,6 +10,12 @@ const createOrderSchema = z.object({
   receipt: z.string().min(1, 'Receipt is required').max(40, 'Receipt too long'),
   platformFee: z.number().min(0, 'Platform fee must be non-negative').optional(),
   baseAmount: z.number().positive('Base amount must be positive').optional(),
+  // Context for webhook processing
+  userId: z.string().optional(),
+  selectedYears: z.number().int().positive().optional(),
+  userEmail: z.string().email().optional(),
+  userName: z.string().optional(),
+  userUsn: z.string().optional(),
 });
 
 const razorpay = new Razorpay({
@@ -49,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const { amount, currency, receipt, platformFee, baseAmount } = validationResult.data;
+    const { amount, currency, receipt, platformFee, baseAmount, userId, selectedYears, userEmail, userName, userUsn } = validationResult.data;
 
     // Additional business logic validation
     if (amount < 1) {
@@ -77,6 +83,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       notes: {
         platformFee: platformFee?.toString() ?? '0',
         baseAmount: baseAmount?.toString() ?? amount.toString(),
+        userId: userId ?? '',
+        selectedYears: selectedYears?.toString() ?? '',
+        userEmail: userEmail ?? '',
+        userName: userName ?? '',
+        userUsn: userUsn ?? '',
       },
     };
 

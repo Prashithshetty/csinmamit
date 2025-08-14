@@ -18,6 +18,7 @@ export const env = createEnv({
     FIREBASE_ADMIN_PRIVATE_KEY: z.string().min(1, "Firebase Admin Private Key is required"),
     RAZORPAY_KEY_ID: z.string().min(1, "Razorpay Key ID is required"),
     RAZORPAY_KEY_SECRET: z.string().min(1, "Razorpay Key Secret is required"),
+    RAZORPAY_WEBHOOK_SECRET: z.string().min(1, "Razorpay Webhook Secret is required"),
     // Optional server vars
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.string().optional(),
@@ -59,6 +60,7 @@ export const env = createEnv({
     FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY,
     RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
     RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
+    RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET,
     NEXT_PUBLIC_RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
