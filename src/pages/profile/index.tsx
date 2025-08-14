@@ -1,10 +1,24 @@
 import Head from "next/head";
+import { useRouter } from "next/router";
 import MaxWidthWrapper from "~/components/layout/max-width-wrapper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { Button } from "~/components/ui/button";
 import Certificates from "../../components/profile/profile-certificate";
 import Profile from "~/components/profile/profile";
 import { EditProfile } from "~/components/profile/profile-edit";
+import { useAuth } from "~/lib/firebase-auth";
 export default function MainProfile() {
+  const router = useRouter();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      void router.push("/");
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
+  };
   return (
     <>
       <Head>
@@ -16,6 +30,11 @@ export default function MainProfile() {
         <section className="bg-white text-black transition-colors duration-500 dark:bg-gray-900/10 dark:text-white">
           <div className="mt-7 flex flex-col items-center justify-center text-center">
             <MaxWidthWrapper>
+              <div className="flex w-full justify-end mb-4">
+                <Button variant="destructive" onClick={handleLogout}>
+                  Logout
+                </Button>
+              </div>
               <Tabs defaultValue="profile">
                 <TabsList>
                   <TabsTrigger value="profile">Profile</TabsTrigger>
