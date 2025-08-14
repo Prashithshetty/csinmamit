@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle, CreditCard, Crown, Loader2, Lock, XCircle } from "lucide-react";
 
 // Public Razorpay Key ID from environment variables
-const RAZORPAY_KEY_ID ="rzp_test_CfJA68nNVTLQg3";
+const RAZORPAY_KEY_ID ="rzp_live_1VJCSr9bMzGon1";
 
 
 
