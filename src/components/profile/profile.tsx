@@ -5,13 +5,13 @@ import { useAuth } from "~/lib/firebase-auth";
 import Image from "next/image";
 import Link from "next/link";
 import { Fade } from "react-awesome-reveal";
-import { buttonVariants } from "~/components/ui/button";
+// import { buttonVariants } from "~/components/ui/button";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../../firebase";
 import { useState, useEffect } from "react";
 import { env } from "~/env";
 import { Dialog } from "@headlessui/react";
-import { useForm } from "react-hook-form";
+// import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 interface MembershipData {
@@ -173,7 +173,7 @@ export default function Profile() {
     );
   }
 
-  const displayName = (userData?.name as string) ?? user?.name ?? "Anonymous";
+  const displayName = userData?.name ?? user?.name ?? "Anonymous";
   const bio = (userData?.bio as string) ?? "No bio available";
   const branch = (userData?.branch as string) ?? "Not specified";
   const role = (userData?.role as string) ?? "User";
@@ -265,9 +265,9 @@ export default function Profile() {
                       {/* Profile Info */}
                       <div className="p-5 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200/30 shadow-sm space-y-2">
                         <h4 className="font-semibold text-slate-600 dark:text-gray-300">Profile Information</h4>
-                        <InfoRow label="Bio" value={bio as React.ReactNode} />
-                        <InfoRow label="Branch" value={branch as React.ReactNode} />
-                        <InfoRow label="Role" value={role as React.ReactNode} />
+                        <InfoRow label="Bio" value={bio} />
+                        <InfoRow label="Branch" value={branch} />
+                        <InfoRow label="Role" value={role} />
                       </div>
 
                       {/* Membership Details */}
