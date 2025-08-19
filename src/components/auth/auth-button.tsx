@@ -1,18 +1,11 @@
 import { Button } from "../ui/button";
-import { DoorClosed, DoorOpen, MoreVertical } from "lucide-react";
+import { DoorOpen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
 import { useAuth } from "~/lib/firebase-auth";
 
 export default function AuthButton() {
-  const { user, signInWithGoogle, signOut } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
 
   const handleSignIn = async () => {
     try {
@@ -22,13 +15,6 @@ export default function AuthButton() {
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error("Sign-out error:", error);
-    }
-  };
 
   // --- Logged In ---
   if (user) {

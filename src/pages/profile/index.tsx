@@ -1,5 +1,4 @@
 import Head from "next/head";
-import { useRouter } from "next/router";
 import MaxWidthWrapper from "~/components/layout/max-width-wrapper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
@@ -8,7 +7,6 @@ import Profile from "~/components/profile/profile";
 import { EditProfile } from "~/components/profile/profile-edit";
 
 export default function MainProfile() {
-  const router = useRouter();
   return (
     <>
       <Head>

@@ -12,7 +12,7 @@ async function getRawBody(req: NextApiRequest): Promise<string> {
     try {
       let data = '';
       req.setEncoding('utf8');
-      req.on('data', (chunk) => {
+      req.on('data', (chunk: string) => {
         data += chunk;
       });
       req.on('end', () => {
@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .digest('hex');
 
     return res.status(200).json({ expectedSignature });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'Failed to compute signature' });
   }
 }

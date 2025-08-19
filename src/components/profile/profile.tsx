@@ -55,7 +55,7 @@ export default function Profile() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
-const InfoRow: React.FC<{ label: string; value: string | number | Date }> = ({ label, value }) => (
+const InfoRow = ({ label, value }: { label: string; value: string | number | Date }) => (
   <div className="flex justify-between text-gray-700 dark:text-gray-300">
     <span className="font-semibold text-slate-500">{label}:</span>
     <span>
@@ -121,9 +121,14 @@ const InfoRow: React.FC<{ label: string; value: string | number | Date }> = ({ l
 
             const paymentDetailsRaw = data.paymentDetails as Record<string, unknown> | undefined;
             const paymentDateRaw = paymentDetailsRaw?.paymentDate as { toDate?: () => Date } | Date | undefined;
+            const hasToDate = (val: unknown): val is { toDate: () => Date } =>
+              typeof val === "object" &&
+              val !== null &&
+              "toDate" in val &&
+              typeof (val as { toDate?: unknown }).toDate === "function";
             const paymentDate = paymentDateRaw
-              ? "toDate" in (paymentDateRaw as any)
-                ? (paymentDateRaw as { toDate: () => Date }).toDate()
+              ? hasToDate(paymentDateRaw)
+                ? paymentDateRaw.toDate()
                 : new Date(paymentDateRaw as Date)
               : new Date();
 
@@ -176,9 +181,9 @@ const InfoRow: React.FC<{ label: string; value: string | number | Date }> = ({ l
   }
 
   const displayName = userData?.name ?? user?.name ?? "Anonymous";
-  const bio = (userData?.bio as string) ?? "No bio available";
-  const branch = (userData?.branch as string) ?? "Not specified";
-  const role = (userData?.role as string) ?? "User";
+  const bio = userData?.bio ?? "No bio available";
+  const branch = userData?.branch ?? "Not specified";
+  const role = userData?.role ?? "User";
   const githubUsername = typeof userData?.github === "string" ? userData.github : "";
 
   const isActive = membershipData ? new Date() < membershipData.membershipEndDate : false;
@@ -288,7 +293,7 @@ const InfoRow: React.FC<{ label: string; value: string | number | Date }> = ({ l
                       )}
 
                       {/* Register Button */}
-                      {role === "EXECUTIVE MEMBER" && userData?.usn && userData?.phone && userData?.name && !alreadyRegistered && (
+                      {role !== "User" && userData?.usn && userData?.phone && userData?.name && !alreadyRegistered && (
                         <button
                           onClick={() => setIsRegisterOpen(true)}
                           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -332,8 +337,8 @@ const InfoRow: React.FC<{ label: string; value: string | number | Date }> = ({ l
                     <button
                       onClick={() =>
                         handleRegister({
-                          usn: (userData?.usn as string) ?? "",
-                          phone: (userData?.phone as string) ?? "",
+                          usn: userData?.usn ?? "",
+                          phone: userData?.phone ?? "",
                           name: displayName,
                         })
                       }
