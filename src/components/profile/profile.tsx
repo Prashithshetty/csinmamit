@@ -55,12 +55,14 @@ export default function Profile() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
-  const InfoRow: React.FC<{ label: string; value: unknown }> = ({ label, value }) => (
-    <div className="flex justify-between text-gray-700 dark:text-gray-300">
-      <span className="font-semibold text-slate-500">{label}:</span>
-      <span>{String(value)}</span>
-    </div>
-  );
+const InfoRow: React.FC<{ label: string; value: string | number | Date }> = ({ label, value }) => (
+  <div className="flex justify-between text-gray-700 dark:text-gray-300">
+    <span className="font-semibold text-slate-500">{label}:</span>
+    <span>
+      {value instanceof Date ? value.toLocaleDateString() : value}
+    </span>
+  </div>
+);
 
   const handleSignOut = async () => {
     try {
