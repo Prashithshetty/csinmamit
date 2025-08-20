@@ -15,6 +15,11 @@ service cloud.firestore {
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
+
+    // Check if user has admin role
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
     
     // Validate string field length
     function isValidStringLength(field, minLen, maxLen) {
@@ -71,7 +76,9 @@ service cloud.firestore {
         request.resource.data.name.size() > 0;
       
       // Users can update their own profile
-      allow update: if isOwner(userId);
+      allow update: if isOwner(userId) &&
+        isValidUserUpdate(request.resource.data, resource.data) &&
+        onlyUpdatingFields(['name', 'bio', 'branch', 'usn', 'github', 'linkedin', 'phone', 'certificates', 'updatedAt']);
       
       // Users can delete their own profile
       allow delete: if isOwner(userId);
@@ -95,7 +102,8 @@ service cloud.firestore {
       // Validate user update (more restrictive than create)
       function isValidUserUpdate(newData, oldData) {
         return isValidUserData(newData) &&
-               newData.createdAt == oldData.createdAt; // Prevent changing creation time
+               newData.createdAt == oldData.createdAt && // Prevent changing creation time
+               newData.role == oldData.role; // Prevent changing role
       }
     }
     
@@ -107,8 +115,8 @@ service cloud.firestore {
       // Public read access for displaying team
       allow read: if true;
       
-      // Authenticated users can write core team data
-      allow write: if isAuthenticated() && isValidCoreTeamData(request.resource.data);
+      // Admins can write core team data
+      allow write: if isAdmin() && isValidCoreTeamData(request.resource.data);
       
       function isValidCoreTeamData(data) {
         return data.keys().hasOnly(['name', 'position', 'bio', 'image', 'github', 'linkedin', 'email', 'order', 'active', 'year', 'createdAt', 'updatedAt']) &&
@@ -136,8 +144,8 @@ service cloud.firestore {
       // Authenticated users can create team member entries (for applications)
       allow create: if isAuthenticated() && isValidTeamMemberData(request.resource.data);
       
-      // Authenticated users can update/delete team member data
-      allow update, delete: if isAuthenticated();
+      // Only admins can update/delete team member data
+      allow update, delete: if isAdmin();
       
       function isValidTeamMemberData(data) {
         return data.keys().hasOnly(['name', 'position', 'bio', 'image', 'github', 'linkedin', 'email', 'usn', 'branch', 'year', 'active', 'approved', 'createdAt', 'updatedAt']) &&
@@ -164,8 +172,8 @@ service cloud.firestore {
       // Public read access for displaying events
       allow read: if true;
       
-      // Authenticated users can write event data
-      allow write: if isAuthenticated() && isValidEventData(request.resource.data);
+      // Admins can write event data
+      allow write: if isAdmin() && isValidEventData(request.resource.data);
       
       function isValidEventData(data) {
         return data.keys().hasOnly(['title', 'description', 'brief', 'image', 'cloudinaryUrl', 'originalImagePath', 'date', 'time', 'venue', 'category', 'type', 'entryFee', 'organizers', 'contactPersons', 'year', 'published', 'registrationsAvailable', 'participants', 'participantCount', 'searchTitle', 'searchDescription', 'status', 'featured', 'createdAt', 'updatedAt']) &&
@@ -298,18 +306,18 @@ service cloud.firestore {
     // ============================================================================
     
     match /admin/{document=**} {
-      // Authenticated users can access admin collections
-      allow read, write: if isAuthenticated();
+      // Only admins can access admin collections
+      allow read, write: if isAdmin();
     }
     
     match /logs/{document=**} {
-      // Authenticated users can access logs
-      allow read, write: if isAuthenticated();
+      // Only admins can access logs
+      allow read, write: if isAdmin();
     }
     
     match /analytics/{document=**} {
-      // Authenticated users can access analytics
-      allow read, write: if isAuthenticated();
+      // Only admins can access analytics
+      allow read, write: if isAdmin();
     }
     
     // ============================================================================

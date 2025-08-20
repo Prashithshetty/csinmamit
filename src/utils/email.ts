@@ -3,11 +3,14 @@ import { env } from '~/env';
 
 // Create transporter
 const createTransporter = () => {
+  const allowInvalidCerts = process.env.SMTP_ALLOW_INVALID_CERTS === 'true';
+
   console.log('SMTP Config Check:', {
     host: env.SMTP_HOST ? 'Set' : 'Missing',
     user: env.SMTP_USER ? 'Set' : 'Missing',
     pass: env.SMTP_PASS ? 'Set' : 'Missing',
-    from: env.SMTP_FROM_EMAIL ? 'Set' : 'Missing'
+    from: env.SMTP_FROM_EMAIL ? 'Set' : 'Missing',
+    allowInvalidCerts,
   });
   
   if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
@@ -24,7 +27,8 @@ const createTransporter = () => {
       pass: env.SMTP_PASS,
     },
     tls: {
-      rejectUnauthorized: false
+      // Validate certificates by default; allow override only if explicitly enabled (useful in dev)
+      rejectUnauthorized: !allowInvalidCerts,
     }
   }) as nodemailer.Transporter;
 };

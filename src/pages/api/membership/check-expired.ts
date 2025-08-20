@@ -1,10 +1,26 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getAdminFirestore } from '~/server/firebase-admin';
 import type { Timestamp } from 'firebase/firestore';
+import { verifyFirebaseToken } from '~/server/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Require admin authorization
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+  const decoded = token ? await verifyFirebaseToken(token) : null;
+  if (!decoded?.uid) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const dbAuth = getAdminFirestore();
+  const userDoc = await dbAuth.collection('users').doc(decoded.uid).get();
+  const role = (userDoc.exists ? (userDoc.data() as { role?: string }).role : undefined) ?? 'User';
+  if (role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
   }
 
   try {

@@ -61,12 +61,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Verify the payment signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
-    const expectedSignature = crypto
+    const expectedSignatureHex = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
       .update(body.toString())
       .digest('hex');
 
-    const isAuthentic = expectedSignature === razorpay_signature;
+    // Timing-safe signature comparison
+    const recvBuf = Buffer.from(razorpay_signature, 'hex');
+    const expBuf = Buffer.from(expectedSignatureHex, 'hex');
+    const isAuthentic = recvBuf.length === expBuf.length && crypto.timingSafeEqual(recvBuf, expBuf);
 
     if (isAuthentic) {
       // Hardened verification: fetch order and payment from Razorpay and validate amounts and context

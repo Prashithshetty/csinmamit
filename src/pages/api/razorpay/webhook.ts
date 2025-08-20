@@ -14,9 +14,16 @@ export const config = {
 async function getRawBody(req: NextApiRequest): Promise<string> {
   return await new Promise((resolve, reject) => {
     try {
+      const MAX_SIZE = 1_000_000; // 1 MB
       let data = '';
+      let size = 0;
       req.setEncoding('utf8');
       req.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > MAX_SIZE) {
+          reject(new Error('PAYLOAD_TOO_LARGE'));
+          return;
+        }
         data += chunk;
       });
       req.on('end', () => {
@@ -69,18 +76,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    const contentType = req.headers['content-type'] || '';
+    if (typeof contentType !== 'string' || !contentType.includes('application/json')) {
+      return res.status(415).json({ error: 'Unsupported Media Type' });
+    }
+
     const rawBody = await getRawBody(req);
     const receivedSignature = req.headers['x-razorpay-signature'] as string | undefined;
     if (!receivedSignature) {
       return res.status(400).json({ error: 'Missing webhook signature' });
     }
 
-    const expectedSignature = crypto
+    const expectedSignatureHex = crypto
       .createHmac('sha256', webhookSecret)
       .update(rawBody)
       .digest('hex');
 
-    if (receivedSignature !== expectedSignature) {
+    // Timing-safe signature comparison
+    const recvBuf = Buffer.from(receivedSignature, 'hex');
+    const expBuf = Buffer.from(expectedSignatureHex, 'hex');
+    if (recvBuf.length !== expBuf.length || !crypto.timingSafeEqual(recvBuf, expBuf)) {
       return res.status(400).json({ error: 'Invalid signature' });
     }
 
@@ -256,6 +271,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ received: true });
   } catch (error) {
     console.error('Webhook error:', error);
+    if (error instanceof Error && error.message === 'PAYLOAD_TOO_LARGE') {
+      return res.status(413).json({ error: 'Payload too large' });
+    }
     return res.status(500).json({ error: 'Webhook processing failed' });
   }
 }
