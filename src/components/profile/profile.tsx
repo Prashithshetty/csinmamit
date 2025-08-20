@@ -266,6 +266,16 @@ const InfoRow = ({ label, value }: { label: string; value: string | number | Dat
                               <p className="text-sm text-gray-600 mt-1">{statusMessage}</p>
                             </div>
                           </div>
+                          {env.NEXT_PUBLIC_MEMBERSHIP_ENABLED === "true" && (!membershipData || !isActive) && (
+                            <div className="mt-3">
+                              <Link
+                                href="/recruit"
+                                className="inline-flex items-center rounded-lg bg-blue-600 text-white px-4 py-2 hover:bg-blue-700 transition-colors"
+                              >
+                                {!membershipData ? "Become an Executive Member" : "Renew Membership"}
+                              </Link>
+                            </div>
+                          )}
                         </div>
                       )}
 
