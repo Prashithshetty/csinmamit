@@ -125,9 +125,74 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.warn('Failed to fetch order for webhook context:', fetchErr);
       }
 
-      // If we have sufficient context, perform membership update similar to /verify-payment
-      if (userId && selectedYears && (baseAmount || paymentEntity.amount)) {
+      // Additionally, fetch payment to assert status and linkage
+      try {
+        const payment = await razorpay.payments.fetch(paymentEntity.id) as {
+          id: string;
+          order_id: string;
+          status: string;
+          amount: number; // paise
+          currency: string;
+        };
+        if (payment.status !== 'captured') {
+          // Not a captured payment; acknowledge without side effects
+          return res.status(200).json({ received: true });
+        }
+        if (paymentEntity.order_id && payment.order_id !== paymentEntity.order_id) {
+          // Payment not linked to the expected order
+          return res.status(200).json({ received: true });
+        }
+      } catch (paymentFetchErr) {
+        console.warn('Webhook: Failed to fetch payment for validation', paymentFetchErr);
+        return res.status(200).json({ received: true });
+      }
+
+      // If we have sufficient context, perform membership update with strict server-side validation
+      if (userId && selectedYears && paymentEntity.amount) {
+        // Idempotency: skip if this payment was already processed
+        const db = getAdminFirestore();
         try {
+          const existing = await db.collection('membershipPayments').doc(paymentEntity.id).get();
+          if (existing.exists) {
+            return res.status(200).json({ received: true });
+          }
+        } catch (idempErr) {
+          console.warn('Webhook: Failed to check idempotency', idempErr);
+          // Continue cautiously; downstream write will still be merge-safe
+        }
+        try {
+          // Server-side enforcement of expected pricing
+          const planPriceMap: Record<number, number> = { 1: 350, 2: 650, 3: 900 };
+          const expectedBase = planPriceMap[selectedYears];
+          if (!expectedBase) {
+            console.warn('Webhook: Invalid selectedYears in notes:', selectedYears);
+            return res.status(200).json({ received: true });
+          }
+          const expectedTotal = Math.ceil(expectedBase / 0.98);
+          const expectedTotalPaise = expectedTotal * 100;
+
+          // Verify the paid amount equals expected and matches order amount if available
+          if (paymentEntity.amount !== expectedTotalPaise) {
+            console.warn('Webhook: Amount mismatch', {
+              paidPaise: paymentEntity.amount,
+              expectedTotalPaise,
+              selectedYears
+            });
+            return res.status(200).json({ received: true });
+          }
+
+          try {
+            if (paymentEntity.order_id) {
+              const order = await razorpay.orders.fetch(paymentEntity.order_id) as { amount?: number };
+              if (order.amount !== undefined && order.amount !== expectedTotalPaise) {
+                console.warn('Webhook: Order amount mismatch', { orderAmount: order.amount, expectedTotalPaise });
+                return res.status(200).json({ received: true });
+              }
+            }
+          } catch (orderCheckErr) {
+            console.warn('Webhook: Failed to re-fetch order for amount check', orderCheckErr);
+          }
+
           const db = getAdminFirestore();
           const membershipStartDate = new Date();
           const currentDate = new Date();
@@ -135,6 +200,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const currentMonth = currentDate.getMonth();
           const endYear = currentYear + selectedYears;
           const membershipEndDate = new Date(endYear, currentMonth, currentDate.getDate());
+          const computedPlatformFee = expectedTotal - expectedBase;
 
           await db.collection('users').doc(userId).set(
             {
@@ -144,9 +210,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               paymentDetails: {
                 razorpayOrderId: paymentEntity.order_id ?? 'N/A',
                 razorpayPaymentId: paymentEntity.id,
-                amount: baseAmount ?? Math.round((paymentEntity.amount ?? 0) / 100),
-                platformFee: platformFee ?? 0,
-                totalAmount: Math.round((paymentEntity.amount ?? 0) / 100),
+                amount: expectedBase,
+                platformFee: computedPlatformFee,
+                totalAmount: expectedTotal,
                 currency: 'INR',
                 paymentDate: new Date(),
               },
@@ -155,6 +221,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
             { merge: true }
           );
+
+          // Mark payment as processed for idempotency
+          await db.collection('membershipPayments').doc(paymentEntity.id).set({
+            orderId: paymentEntity.order_id ?? 'N/A',
+            paymentId: paymentEntity.id,
+            userId,
+            selectedYears,
+            amountBase: expectedBase,
+            amountTotal: expectedTotal,
+            currency: 'INR',
+            processedAt: new Date(),
+            source: 'webhook',
+          });
 
           if (userEmail && userName) {
             await sendExecutiveMembershipEmail(

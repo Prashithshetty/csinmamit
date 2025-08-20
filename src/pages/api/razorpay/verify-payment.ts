@@ -1,11 +1,22 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
+import Razorpay from 'razorpay';
+import { env } from '~/env';
 import { getAdminFirestore } from '~/server/firebase-admin';
 import { sendExecutiveMembershipEmail } from '~/utils/email';
+import { verifyFirebaseToken } from '~/server/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Enforce authenticated caller using Firebase ID token
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+  const decoded = token ? await verifyFirebaseToken(token) : null;
+  if (!decoded?.uid) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
@@ -58,93 +69,163 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const isAuthentic = expectedSignature === razorpay_signature;
 
     if (isAuthentic) {
-      // Optionally update membership server-side using Admin SDK (bypasses client security rule limitations)
-      if (userId && selectedYears && amount) {
-        console.log('🔧 Payment verification - Selected years:', selectedYears, 'Amount:', amount, 'Platform Fee:', platformFee);
-        try {
-          const db = getAdminFirestore();
-          const membershipStartDate = new Date();
-          const currentDate = new Date();
-          const currentYear = currentDate.getFullYear();
-          const currentMonth = currentDate.getMonth(); // 0-11 (Jan=0, Dec=11)
-          
-          // Calculate end date based on selected years
-          // Ends on the same date and month as purchase date, but in future years
-          const endYear = currentYear + selectedYears;
-          
-          const membershipEndDate = new Date(endYear, currentMonth, currentDate.getDate());
-          
-          console.log('📅 Membership dates:', {
-            startDate: membershipStartDate.toISOString(),
-            endDate: membershipEndDate.toISOString(),
-            selectedYears,
-            endYear,
-            currentYear,
-            currentMonth
-          });
+      // Hardened verification: fetch order and payment from Razorpay and validate amounts and context
+      try {
+        const razorpay = new Razorpay({
+          key_id: env.RAZORPAY_KEY_ID,
+          key_secret: env.RAZORPAY_KEY_SECRET,
+        });
 
-          await db.collection('users').doc(userId).set(
-            {
-              membershipType: `${selectedYears}-Year Executive Membership (Until April 30, ${membershipEndDate.getFullYear()})`,
-              membershipStartDate,
-              membershipEndDate,
-              paymentDetails: {
-                razorpayOrderId: razorpay_order_id,
-                razorpayPaymentId: razorpay_payment_id,
-                amount: baseAmount ?? amount, // Store base amount (without platform fee)
-                platformFee: platformFee ?? 0, // Store platform fee separately
-                totalAmount: amount, // Store total amount paid
-                currency: 'INR',
-                paymentDate: new Date(),
-              },
-              role: 'EXECUTIVE MEMBER',
-              updatedAt: new Date(),
-            },
-            { merge: true }
-          );
+        // Fetch order and payment from Razorpay
+        const order = await razorpay.orders.fetch(razorpay_order_id) as {
+          id: string;
+          amount: number; // paise
+          currency: string;
+          notes?: Record<string, string>;
+        };
 
-          // Send Executive Membership confirmation email after successful membership update
-          if (userData.email && userData.name) {
-            try {
-              console.log('📧 Attempting to send Executive Membership email to:', userData.email);
-              const membershipPlan = `${selectedYears}-Year Executive Membership`;
-              const emailResult = await sendExecutiveMembershipEmail(
-                userData.name,
-                userData.email,
-                membershipPlan,
-                userData.usn ?? 'N/A'
-              );
-              
-              if (emailResult) {
-                console.log(`✅ Executive Membership email sent successfully to ${userData.email}`);
-              } else {
-                console.log(`❌ Executive Membership email failed to send to ${userData.email} - SMTP not configured`);
-              }
-            } catch (emailError) {
-              console.error('❌ Error sending Executive Membership email:', emailError);
-              // Don't fail the payment verification if email fails
-            }
-          } else {
-            console.log('⚠️ Skipping email send - missing user data:', { email: userData.email, name: userData.name });
-          }
-        } catch (dbError) {
-          console.error('Admin membership update failed:', dbError);
-          // Continue: we still return success for payment verification, but include a warning
+        const payment = await razorpay.payments.fetch(razorpay_payment_id) as {
+          id: string;
+          order_id: string;
+          status: string;
+          amount: number; // paise
+          currency: string;
+        };
+
+        // Basic consistency checks
+        if (!order || !payment) {
+          return res.status(400).json({ error: 'Unable to fetch payment/order from Razorpay' });
+        }
+        if (payment.status !== 'captured') {
+          return res.status(400).json({ error: 'Payment not captured' });
+        }
+        if (payment.order_id !== order.id) {
+          return res.status(400).json({ error: 'Payment does not belong to order' });
+        }
+        if (payment.amount !== order.amount) {
+          return res.status(400).json({ error: 'Payment amount mismatch' });
+        }
+
+        // Extract trusted context from order notes
+        const notes = order.notes ?? {};
+        const notesUserId = notes.userId ?? '';
+        const notesSelectedYears = notes.selectedYears ? Number(notes.selectedYears) : NaN;
+        const notesUserEmail = notes.userEmail ?? userData.email ?? '';
+        const notesUserName = notes.userName ?? userData.name ?? '';
+        const notesUserUsn = notes.userUsn ?? userData.usn ?? '';
+
+        if (!notesUserId || !notesSelectedYears || Number.isNaN(notesSelectedYears)) {
+          return res.status(400).json({ error: 'Missing order context (user/plan) in Razorpay order' });
+        }
+        // Enforce that the authenticated user matches the order context
+        if (notesUserId !== decoded.uid) {
+          return res.status(403).json({ error: 'Forbidden: user mismatch' });
+        }
+
+        // Server-side price enforcement
+        const planPriceMap: Record<number, number> = { 1: 350, 2: 650, 3: 900 };
+        const expectedBase = planPriceMap[notesSelectedYears];
+        if (!expectedBase) {
+          return res.status(400).json({ error: 'Invalid membership duration' });
+        }
+        const expectedTotal = Math.ceil(expectedBase / 0.98); // rupees
+        const expectedTotalPaise = expectedTotal * 100;
+        if (order.amount !== expectedTotalPaise) {
+          return res.status(400).json({ error: `Amount mismatch: expected ₹${expectedTotal}` });
+        }
+        const computedPlatformFee = expectedTotal - expectedBase;
+
+        // Update membership in Firestore with idempotency
+        const db = getAdminFirestore();
+        const paymentsRef = db.collection('membershipPayments').doc(razorpay_payment_id);
+        const existingPayment = await paymentsRef.get();
+        if (existingPayment.exists) {
           return res.status(200).json({
             success: true,
-            message: 'Payment verified successfully, but membership update failed. Please contact support.',
+            message: 'Payment already processed',
             paymentId: razorpay_payment_id,
             orderId: razorpay_order_id,
           });
         }
-      }
+        const membershipStartDate = new Date();
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth();
+        const endYear = currentYear + notesSelectedYears;
+        const membershipEndDate = new Date(endYear, currentMonth, currentDate.getDate());
 
-      return res.status(200).json({
-        success: true,
-        message: 'Payment verified successfully',
-        paymentId: razorpay_payment_id,
-        orderId: razorpay_order_id,
-      });
+        await db.collection('users').doc(notesUserId).set(
+          {
+            membershipType: `${notesSelectedYears}-Year Executive Membership (Until April 30, ${membershipEndDate.getFullYear()})`,
+            membershipStartDate,
+            membershipEndDate,
+            paymentDetails: {
+              razorpayOrderId: razorpay_order_id,
+              razorpayPaymentId: razorpay_payment_id,
+              amount: expectedBase, // base amount without platform fee
+              platformFee: computedPlatformFee,
+              totalAmount: expectedTotal,
+              currency: 'INR',
+              paymentDate: new Date(),
+            },
+            role: 'EXECUTIVE MEMBER',
+            updatedAt: new Date(),
+          },
+          { merge: true }
+        );
+
+        // Mark payment as processed (idempotency)
+        await db.collection('membershipPayments').doc(razorpay_payment_id).set({
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          userId: notesUserId,
+          selectedYears: notesSelectedYears,
+          amountBase: expectedBase,
+          amountTotal: expectedTotal,
+          currency: 'INR',
+          processedAt: new Date(),
+          source: 'verify-payment',
+        });
+
+        // Send Executive Membership confirmation email
+        if (notesUserEmail && notesUserName) {
+          try {
+            const membershipPlan = `${notesSelectedYears}-Year Executive Membership`;
+            const emailResult = await sendExecutiveMembershipEmail(
+              notesUserName,
+              notesUserEmail,
+              membershipPlan,
+              notesUserUsn || 'N/A'
+            );
+            if (emailResult) {
+              console.log(`✅ Executive Membership email sent successfully to ${notesUserEmail}`);
+            } else {
+              console.log(`❌ Executive Membership email failed to send to ${notesUserEmail} - SMTP not configured`);
+            }
+          } catch (emailError) {
+            console.error('❌ Error sending Executive Membership email:', emailError);
+            // Do not fail overall verification due to email error
+          }
+        } else {
+          console.log('⚠️ Skipping email send - missing user data:', { email: notesUserEmail, name: notesUserName });
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: 'Payment verified successfully',
+          paymentId: razorpay_payment_id,
+          orderId: razorpay_order_id,
+        });
+      } catch (dbError) {
+        console.error('Admin membership update failed:', dbError);
+        // Continue: acknowledge verification, but include a warning
+        return res.status(200).json({
+          success: true,
+          message: 'Payment verified successfully, but membership update failed. Please contact support.',
+          paymentId: razorpay_payment_id,
+          orderId: razorpay_order_id,
+        });
+      }
     } else {
       return res.status(400).json({
         success: false,

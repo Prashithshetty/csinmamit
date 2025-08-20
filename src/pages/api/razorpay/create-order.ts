@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import Razorpay from 'razorpay';
 import { z } from 'zod';
 import { env } from '~/env';
+import { verifyFirebaseToken } from '~/server/auth';
 
 // Input validation schema
 const createOrderSchema = z.object({
@@ -11,8 +12,8 @@ const createOrderSchema = z.object({
   platformFee: z.number().min(0, 'Platform fee must be non-negative').optional(),
   baseAmount: z.number().positive('Base amount must be positive').optional(),
   // Context for webhook processing
-  userId: z.string().optional(),
-  selectedYears: z.number().int().positive().optional(),
+  userId: z.string(),
+  selectedYears: z.number().int().positive(),
   userEmail: z.string().email().optional(),
   userName: z.string().optional(),
   userUsn: z.string().optional(),
@@ -35,11 +36,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  console.log('🔧 Razorpay API - Environment check:', {
-    keyId: env.RAZORPAY_KEY_ID?.substring(0, 10) + '...',
-    hasSecret: !!env.RAZORPAY_KEY_SECRET,
-    nodeEnv: process.env.NODE_ENV
-  });
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🔧 Razorpay API - Environment check:', {
+      keyId: env.RAZORPAY_KEY_ID?.substring(0, 10) + '...',
+      hasSecret: !!env.RAZORPAY_KEY_SECRET,
+      nodeEnv: process.env.NODE_ENV
+    });
+  }
+
+  // Require authenticated caller and bind to their UID
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+  const decoded = token ? await verifyFirebaseToken(token) : null;
+  if (!decoded?.uid) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   try {
     // Input validation
@@ -57,6 +68,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { amount, currency, receipt, platformFee, baseAmount, userId, selectedYears, userEmail, userName, userUsn } = validationResult.data;
 
+    // Ensure the order is being created for the authenticated user
+    const authUserId = decoded.uid;
+    if (userId !== authUserId) {
+      return res.status(403).json({ error: 'Forbidden: user mismatch' });
+    }
+
     // Additional business logic validation
     if (amount < 1) {
       return res.status(400).json({ 
@@ -65,38 +82,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Validate that total amount equals base amount + platform fee if both are provided
-    if (baseAmount && platformFee !== undefined) {
-      const expectedTotal = baseAmount + platformFee;
-      if (Math.abs(amount - expectedTotal) > 1) { // Allow 1 rupee difference for rounding
-        return res.status(400).json({ 
-          error: 'Amount mismatch',
-          message: 'Total amount does not match base amount + platform fee'
-        });
-      }
+    // Enforce server-side expected totals based on selectedYears to prevent tampering
+    const planPriceMap: Record<number, number> = { 1: 350, 2: 650, 3: 900 };
+    const expectedBase = planPriceMap[selectedYears];
+    if (!expectedBase) {
+      return res.status(400).json({
+        error: 'Invalid plan',
+        message: 'Unsupported membership duration selected'
+      });
     }
+    const expectedTotal = Math.ceil(expectedBase / 0.98);
+    if (amount !== expectedTotal) {
+      return res.status(400).json({
+        error: 'Amount mismatch',
+        message: `Expected total amount ₹${expectedTotal} for ${selectedYears}-year plan`
+      });
+    }
+    const computedPlatformFee = expectedTotal - expectedBase;
 
     const options = {
-      amount: Math.round(amount * 100), // Razorpay expects amount in paise, ensure integer
+      amount: Math.round(expectedTotal * 100), // Razorpay expects amount in paise
       currency,
       receipt,
       notes: {
-        platformFee: platformFee?.toString() ?? '0',
-        baseAmount: baseAmount?.toString() ?? amount.toString(),
-        userId: userId ?? '',
-        selectedYears: selectedYears?.toString() ?? '',
+        platformFee: computedPlatformFee.toString(),
+        baseAmount: expectedBase.toString(),
+        userId: authUserId,
+        selectedYears: selectedYears.toString(),
         userEmail: userEmail ?? '',
         userName: userName ?? '',
         userUsn: userUsn ?? '',
       },
     };
 
-    console.log('📋 Creating Razorpay order with options:', {
-      amount: options.amount,
-      currency: options.currency,
-      receipt: options.receipt,
-      notes: options.notes
-    });
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('📋 Creating Razorpay order with options:', {
+        amount: options.amount,
+        currency: options.currency,
+        receipt: options.receipt,
+        notes: options.notes
+      });
+    }
 
     const order = await razorpay.orders.create(options) as {
       id: string;
@@ -104,19 +130,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       currency: string;
     };
 
-    console.log('✅ Razorpay order created successfully:', {
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency
-    });
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('✅ Razorpay order created successfully:', {
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency
+      });
+    }
 
     res.status(200).json({
       success: true,
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      platformFee: platformFee ?? 0,
-      baseAmount: baseAmount ?? amount,
+      platformFee: computedPlatformFee,
+      baseAmount: expectedBase,
     });
   } catch (error) {
     console.error('Error creating Razorpay order:', error);

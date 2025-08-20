@@ -14,8 +14,8 @@ import { env } from "~/env";
 import { useRouter } from "next/navigation";
 import { CheckCircle, CreditCard, Crown, Loader2, Lock, XCircle } from "lucide-react";
 
-// Public Razorpay Key ID from environment variables
-const RAZORPAY_KEY_ID ="rzp_live_1VJCSr9bMzGon1";
+ // Public Razorpay Key ID from environment variables
+ const RAZORPAY_KEY_ID = env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
 
 
@@ -46,7 +46,7 @@ declare global {
 }
 
 export default function RecruitPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, getIdToken } = useAuth();
   const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [selectedPlanPrice, setSelectedPlanPrice] = useState<number>(0);
@@ -121,13 +121,21 @@ export default function RecruitPage() {
       
       const orderResponse = await fetch("/api/razorpay/create-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await getIdToken()}`,
+        },
+        body: JSON.stringify({
           amount: totalAmount, // Send total amount including platform fee
-          currency: "INR", 
-          receipt: `mem_${Date.now()}`,
+          currency: "INR",
+          receipt: `mem_${selectedYears}_${Date.now()}`,
           platformFee: platformFee, // Send platform fee separately for tracking
-          baseAmount: selectedPlanPrice // Send base amount for reference
+          baseAmount: selectedPlanPrice, // Send base amount for reference
+          userId: user.id,
+          selectedYears: selectedYears,
+          userEmail: user.email,
+          userName: user.name ?? (typeof userData?.name === 'string' ? userData.name : undefined),
+          userUsn: typeof userData?.usn === 'string' ? userData.usn : undefined,
         }),
       });
       
@@ -140,7 +148,6 @@ export default function RecruitPage() {
         throw new Error(orderData.error ?? "Failed to create order");
       }
 
-      console.log("🔑 Using Razorpay key:", RAZORPAY_KEY_ID);
       
       const options = {
         key: RAZORPAY_KEY_ID,
@@ -153,7 +160,10 @@ export default function RecruitPage() {
           try {
             const verifyResponse = await fetch("/api/razorpay/verify-payment", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { 
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${await getIdToken()}`,
+              },
               body: JSON.stringify({
                 ...response,
                 userId: user.id,
