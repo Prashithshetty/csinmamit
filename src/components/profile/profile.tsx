@@ -53,6 +53,7 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(true);
   const [membershipData, setMembershipData] = useState<MembershipData | null>(null);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  // const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
 const InfoRow = ({ label, value }: { label: string; value: string | number | Date }) => (
