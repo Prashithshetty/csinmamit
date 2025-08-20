@@ -326,14 +326,14 @@ const InfoRow = ({ label, value }: { label: string; value: string | number | Dat
         <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <Dialog.Panel className="mx-auto max-w-md rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl">
-            <Dialog.Title className="text-lg font-semibold mb-4">Register</Dialog.Title>
+            <Dialog.Title className="text-lg font-semibold mb-4">Inauguration Program Registration</Dialog.Title>
 
             {isRegisterOpen && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                 <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-md max-w-sm w-full">
-                  <h2 className="text-lg font-semibold mb-4">Event Registration</h2>
+                  <h2 className="text-lg font-semibold mb-4">CSI Inauguration Program — 21</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-                    Do you want to register for this event with your profile details?
+                    Do you want to register for the CSI Inauguration program on 21 Aug with your profile details?
                   </p>
 
                   <div className="flex justify-end gap-2">
