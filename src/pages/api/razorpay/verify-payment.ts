@@ -24,26 +24,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       razorpay_order_id, 
       razorpay_payment_id, 
       razorpay_signature, 
-      userId, 
-      selectedYears, 
-      amount, 
       userEmail, 
       userName, 
-      userUsn,
-      platformFee,
-      baseAmount
+      userUsn
     } = req.body as {
       razorpay_order_id: string;
       razorpay_payment_id: string;
       razorpay_signature: string;
-      userId?: string;
-      selectedYears?: number;
-      amount?: number;
       userEmail?: string;
       userName?: string;
       userUsn?: string;
-      platformFee?: number;
-      baseAmount?: number;
     };
 
     // Get user data for email from request body

@@ -66,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const { amount, currency, receipt, platformFee, baseAmount, userId, selectedYears, userEmail, userName, userUsn } = validationResult.data;
+    const { amount, currency, receipt, userId, selectedYears, userEmail, userName, userUsn } = validationResult.data;
 
     // Ensure the order is being created for the authenticated user
     const authUserId = decoded.uid;

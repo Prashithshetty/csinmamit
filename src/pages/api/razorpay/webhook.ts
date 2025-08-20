@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
@@ -18,7 +19,7 @@ async function getRawBody(req: NextApiRequest): Promise<string> {
       let data = '';
       let size = 0;
       req.setEncoding('utf8');
-      req.on('data', (chunk) => {
+      req.on('data', (chunk: string) => {
         size += chunk.length;
         if (size > MAX_SIZE) {
           reject(new Error('PAYLOAD_TOO_LARGE'));
@@ -76,7 +77,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const contentType = req.headers['content-type'] || '';
+    const ctHeader = req.headers['content-type'];
+    const contentType = Array.isArray(ctHeader) ? ctHeader[0] : (ctHeader ?? '');
     if (typeof contentType !== 'string' || !contentType.includes('application/json')) {
       return res.status(415).json({ error: 'Unsupported Media Type' });
     }
@@ -99,6 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid signature' });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const parsed: unknown = JSON.parse(rawBody);
 
     // Handle only relevant events
@@ -115,8 +118,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let userEmail: string | undefined;
       let userName: string | undefined;
       let userUsn: string | undefined;
-      let platformFee: number | undefined;
-      let baseAmount: number | undefined;
 
       try {
         if (paymentEntity.order_id) {
@@ -133,8 +134,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           userName = notes.userName ?? undefined;
           userUsn = notes.userUsn ?? undefined;
           selectedYears = notes.selectedYears ? Number(notes.selectedYears) : undefined;
-          platformFee = notes.platformFee ? Number(notes.platformFee) : undefined;
-          baseAmount = notes.baseAmount ? Number(notes.baseAmount) : undefined;
         }
       } catch (fetchErr) {
         console.warn('Failed to fetch order for webhook context:', fetchErr);
