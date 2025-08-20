@@ -5,7 +5,7 @@ import { env } from '~/env';
 const createTransporter = () => {
   const allowInvalidCerts = process.env.SMTP_ALLOW_INVALID_CERTS === 'true';
 
-  console.log('SMTP Config Check:', {
+  console.error('SMTP Config Check:', {
     host: env.SMTP_HOST ? 'Set' : 'Missing',
     user: env.SMTP_USER ? 'Set' : 'Missing',
     pass: env.SMTP_PASS ? 'Set' : 'Missing',
@@ -42,7 +42,7 @@ export const sendWelcomeEmail = async (
 ) => {
   const transporter = createTransporter();
   if (!transporter) {
-    console.log('Email not sent - SMTP not configured');
+    console.error('Email not sent - SMTP not configured');
     return;
   }
 
@@ -124,8 +124,8 @@ export const sendWelcomeEmail = async (
     const info = await transporter.sendMail(mailOptions) as {
       messageId: string;
     };
-    console.log(`Welcome email sent to ${email}`);
-    console.log('Message ID:', info.messageId);
+    console.error(`Welcome email sent to ${email}`);
+    console.error('Message ID:', info.messageId);
     return true;
   } catch (error) {
     console.error('Error sending welcome email:', error);
@@ -152,7 +152,7 @@ export const sendExecutiveMembershipEmail = async (
 ) => {
   const transporter = createTransporter();
   if (!transporter) {
-    console.log('Email not sent - SMTP not configured');
+    console.error('Email not sent - SMTP not configured');
     return;
   }
 
@@ -269,8 +269,8 @@ export const sendExecutiveMembershipEmail = async (
     const info = await transporter.sendMail(mailOptions) as {
       messageId: string;
     };
-    console.log(`Executive Membership email sent to ${email}`);
-    console.log('Message ID:', info.messageId);
+    console.error(`Executive Membership email sent to ${email}`);
+    console.error('Message ID:', info.messageId);
     return true;
   } catch (error) {
     console.error('Error sending Executive Membership email:', error);
