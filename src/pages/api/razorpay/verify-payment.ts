@@ -184,14 +184,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (notesUserEmail && notesUserName) {
           try {
             const membershipPlan = `${notesSelectedYears}-Year Executive Membership`;
+            
+            // Get complete user data for email
+            const userDoc = await db.collection('users').doc(notesUserId).get();
+            const completeUserData = userDoc.exists ? (userDoc.data() as Record<string, unknown>) : undefined;
+            
             const emailResult = await sendExecutiveMembershipEmail(
               notesUserName,
               notesUserEmail,
               membershipPlan,
-              notesUserUsn || 'N/A'
+              notesUserUsn || 'N/A',
+              completeUserData
             );
             if (emailResult) {
-              console.log(`✅ Executive Membership email sent successfully to ${notesUserEmail}`);
+              console.log(`✅ Executive Membership email sent successfully to ${notesUserEmail} and cc'd to admin`);
             } else {
               console.log(`❌ Executive Membership email failed to send to ${notesUserEmail} - SMTP not configured`);
             }
